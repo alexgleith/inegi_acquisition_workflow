@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 :mod:`level2_order_download` - Order and download level 2 products (surface
 reflectance, brightness temperature and pixel quality) from USGS.
@@ -6,8 +7,6 @@ reflectance, brightness temperature and pixel quality) from USGS.
 :moduleauthor: Tina Yang <tina.yang@ga.gov.au>
 
 """
-
-# !/bin/env python
 
 import argparse
 import time
@@ -38,7 +37,7 @@ def download_file(url, output_dir):
     :returns: the downloaded file
 
     """
-
+    log.info("Downloading file {} to {}".format(url, output_dir))
     local_filename = os.path.join(output_dir, url.split('/')[-1])
     r = requests.get(url, stream=True)
     with open(local_filename, 'wb') as f:
@@ -149,6 +148,8 @@ def define_order(scene_list, desired_sensors_list, username, password):
 
     filtered_order = {}
 
+    print(filtered_order.keys())
+
     for desired_sensor in desired_sensors_list:
         if desired_sensor in available_products:
             filtered_order[desired_sensor] = available_products[desired_sensor]
@@ -160,7 +161,7 @@ def define_order(scene_list, desired_sensors_list, username, password):
 
     # identify problem order keys and delete them from order
     problems = ['date_restricted', 'not_implemented', 'oli8_collection']
-    problem_scenes = []
+    problem_scenes = [u'LE07_L1TP_173061_20160611_20161210_01_T1']
     for a_problem in problems:
         if a_problem in filtered_order.keys():
             if a_problem == 'date_restricted':
@@ -359,7 +360,7 @@ def run():
     """
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config_file', help='The configuration file')
+    parser.add_argument('-c', '--config_file', help='The configuration file', default="level2_order_download.cfg")
     args = parser.parse_args()
     configFile = args.config_file
 
@@ -373,12 +374,9 @@ def run():
     path_row_list = config.get('Process', 'path_row_list').split(' ')
     root_folder = config.get('Process', 'root_folder')
 
-    csv_url = ['https://landsat.usgs.gov/landsat/metadata_service/'
-               'bulk_metadata_files/LANDSAT_TM_C1.csv.gz',
-               'https://landsat.usgs.gov/landsat/metadata_service/'
-               'bulk_metadata_files/LANDSAT_ETM_C1.csv.gz',
-               'https://landsat.usgs.gov/landsat/metadata_service/'
-               'bulk_metadata_files/LANDSAT_8_C1.csv.gz']
+    csv_url = ['https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_TM_C1.csv.gz',
+               'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C1.csv.gz',
+               'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_8_C1.csv.gz']
 
     if download_catalogue:
         print('downloading latest LANDSAT bulk metadata file')
@@ -420,8 +418,11 @@ def run():
             if len(found_sensors) > 0:
                 print ('ordering  ' + str(order_no) + ' scenes(s) for path/row: ' + path_row + ', date range: ' +
                        date_range + ', sensors: ' + str(found_sensors))
-                order_id = submit_order(order, username, password)
-                order_id_path_list.append((order_id, data_dir))
+                try:
+                    order_id = submit_order(order, username, password)
+                    order_id_path_list.append((order_id, data_dir))
+                except TypeError as e:
+                    log.info("Failed to order {} with exception {}".format(order_no, e))
             else:
                 print('No items found for for path/row: ' + path_row + ', date range: ' + date_range + ', sensors: ' +
                       str(desired_sensors_list))
